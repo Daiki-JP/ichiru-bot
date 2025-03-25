@@ -109,22 +109,19 @@ function handleEvent(event) {
     text: replyText
   });
 }
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
-});// サーバー起動（Render用）
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`🌐 Server is running on port ${port}`);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
-    console.error(`ポート${port}はすでに使用されています`);
+    console.error(`❌ ポート${port}はすでに使用されています`);
     process.exit(1);
   } else {
     throw err;
   }
 });
+
+
 
 
