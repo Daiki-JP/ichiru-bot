@@ -13,28 +13,27 @@ app.use(express.json());
 const client = new line.Client(config);
 const userSettings = {};
 
-app.post('/webhook', line.middleware(config), (req, res) => {
-  Promise.all(req.body.events.map(handleEvent))
-    .then(result => res.json(result))
-    .catch(err => {
-      console.error(err);
-      res.status(500).end();
-    });
+app.post('/webhook', line.middleware(config), async (req, res) => {
+  try {
+    const results = await Promise.all(req.body.events.map(handleEvent));
+    res.status(200).json(results);
+  } catch (err) {
+    console.error(err);
+    res.status(500).end();
+  }
 });
 
 function handleEvent(event) {
   if (event.type !== 'message' || event.message.type !== 'text') {
-    return Promise.resolve(null);
+    return Promise.resolve({ status: 'ignored' }); // ← nullではなく安全な値を返す
   }
 
   const userId = event.source.userId;
   const messageText = event.message.text.trim();
 
-  // 初回ユーザー：即座にあいさつして名前を聞く
+  // 初回ユーザー
   if (!userSettings[userId]) {
-    userSettings[userId] = {
-      step: 'ask_name'
-    };
+    userSettings[userId] = { step: 'ask_name' };
 
     return client.replyMessage(event.replyToken, {
       type: 'text',
@@ -45,7 +44,6 @@ function handleEvent(event) {
   const user = userSettings[userId];
   let replyText = '';
 
-  // ステップごとの会話フロー
   switch (user.step) {
     case 'ask_name':
       user.step = 'get_name';
@@ -70,11 +68,7 @@ function handleEvent(event) {
       break;
 
     case 'ask_location':
-      if (messageText === 'スキップ') {
-        user.location = '未設定';
-      } else {
-        user.location = messageText;
-      }
+      user.location = messageText === 'スキップ' ? '未設定' : messageText;
       user.step = 'ask_wake_time';
       replyText = 'ありがとうございます！\n\n最後に、起きる時間を教えてください（例：07:00）。\nスキップしたい場合は「スキップ」と送ってください。';
       break;
@@ -85,10 +79,9 @@ function handleEvent(event) {
       } else if (messageText.match(/^\d{1,2}:\d{2}$/)) {
         user.wakeUpTime = messageText;
       } else {
-        replyText = '時刻の形式が正しくないようです。例：07:00 という形式で教えてください。';
         return client.replyMessage(event.replyToken, {
           type: 'text',
-          text: replyText
+          text: '時刻の形式が正しくないようです。例：07:00 という形式で教えてください。'
         });
       }
 
@@ -109,8 +102,8 @@ function handleEvent(event) {
     text: replyText
   });
 }
-const port = process.env.PORT || 3000;
 
+const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`🌐 Server is running on port ${port}`);
 }).on('error', (err) => {
